@@ -239,6 +239,11 @@
       <div id="sessionsList"></div>
     </div>
 
+    <div class="box" id="savedbox" style="display:none">
+      <label>★ Saved people</label>
+      <div id="savedList"></div>
+    </div>
+
     <div class="box" id="appbox" style="display:none">
       <div class="row"><label>Luma event URL</label><input id="eventUrl" placeholder="https://lu.ma/xxxxxxxx" /></div>
       <div class="row">
@@ -255,6 +260,8 @@
     </div>
 
     <div id="out"></div>
+    <div id="loadmoreWrap" style="text-align:center;margin:4px 0 8px"></div>
+    <div id="rerankWrap" style="text-align:center;margin:2px 0 10px"></div>
 
     <div id="chatwrap" class="box">
       <label>Chat about the room</label>
@@ -330,8 +337,8 @@
       el('authbox').style.display = inApp ? 'none' : 'block';
       el('appbox').style.display = inApp ? 'block' : 'none';
       el('userbar').style.display = inApp ? 'block' : 'none';
-      if (inApp) { el('userbar').innerHTML = `Signed in as ${esc(auth.user?.email || '')} · <a href="#" id="logout">log out</a>`; el('logout').onclick = (e) => { e.preventDefault(); logout(); }; refreshBilling(); loadSessions(); }
-      else { el('out').innerHTML = ''; el('chatwrap').style.display = 'none'; el('billingbar').style.display = 'none'; el('sessionsbox').style.display = 'none'; }
+      if (inApp) { el('userbar').innerHTML = `Signed in as ${esc(auth.user?.email || '')} · <a href="#" id="logout">log out</a>`; el('logout').onclick = (e) => { e.preventDefault(); logout(); }; refreshBilling(); loadSessions(); loadSaved(); }
+      else { el('out').innerHTML = ''; el('chatwrap').style.display = 'none'; el('billingbar').style.display = 'none'; el('sessionsbox').style.display = 'none'; el('savedbox').style.display = 'none'; }
     }
     function logout() { auth = { token: null, user: null }; localStorage.removeItem('wp_token'); localStorage.removeItem('wp_user'); renderAuth(); }
 
@@ -388,13 +395,19 @@
     }
 
     el('go').addEventListener('click', go);
+    // Lock the input form (and session switching) while a scrape/rank is in flight.
+    function setBusy(busy) {
+      ['eventUrl', 'cookie', 'prefs', 'profile', 'go', 'newSessionBtn'].forEach((id) => { const e = el(id); if (e) e.disabled = busy; });
+      const sb = el('sessionsbox'); if (sb) { sb.style.opacity = busy ? '.55' : ''; sb.style.pointerEvents = busy ? 'none' : ''; }
+      const lb = el('loadMoreBtn'); if (lb) lb.disabled = busy;
+    }
     async function go() {
       const eventUrl = el('eventUrl').value.trim();
       const lumaCookie = el('cookie').value.trim();
       const prefs = el('prefs').value.trim();
       ctx.profile = el('profile').value.trim();
       if (!eventUrl || !lumaCookie) { el('steps').innerHTML = '<li class="err"><span class="ic">✕</span>Paste both an event URL and your Luma cookie.</li>'; return; }
-      el('go').disabled = true; el('out').innerHTML = ''; el('chatwrap').style.display = 'none';
+      setBusy(true); el('out').innerHTML = ''; el('loadmoreWrap').innerHTML = ''; el('chatwrap').style.display = 'none';
       const state = { scrape: { status: 'active' }, rank: { status: '' } };
       renderSteps(state);
       try {
@@ -422,14 +435,14 @@
         if (r2.error) throw new Error(r2.error);
         state.rank = { status: 'done', data: `top ${r2.shortlist.length} of ${r2.totalAttendees}` }; renderSteps(state);
         ctx.runId = r2.runId || null;
-        showRoom(r2.shortlist);
+        showRoom(r2.shortlist, r2.hasMore);
         openChat(r2.shortlist);
         el('go').textContent = 'Re-run scraper (fresh data) →';
         loadSessions();
       } catch (e) {
         const s = el('steps').querySelector('li.active'); if (s) { s.className = 'err'; s.querySelector('.ic').textContent = '✕'; }
         el('out').innerHTML = `<div class="err">${esc(String(e.message || e))}</div>`;
-      } finally { el('go').disabled = false; refreshBilling(); }
+      } finally { setBusy(false); refreshBilling(); }
     }
 
     async function post(path, body) {
@@ -495,13 +508,98 @@
       try {
         const r = await post('/save', { runId: ctx.runId || null, person: { id: s.id, name: s.name, headline: s.headline, opener: s.opener } });
         b.textContent = r.ok ? 'Saved ✓' : '⚠';
+        if (r.ok) loadSaved();
       } catch (err) { b.textContent = '⚠'; b.disabled = false; }
     });
 
     // ---- sessions (persisted per user) ----
-    function showRoom(shortlist) {
+    function showRoom(shortlist, hasMore) {
       ctx.shortlist = shortlist || [];
       el('out').innerHTML = (shortlist || []).map((s, i) => card(s, i)).join('') || '<div class="empty">No ranked matches — try broader preferences.</div>';
+      renderLoadMore(hasMore && ctx.shortlist.length > 0);
+      renderRerank();
+    }
+    // ---- deep re-rank on RocketRide Cloud (async: start actor -> poll -> re-render) ----
+    function renderRerank() {
+      el('rerankWrap').innerHTML = ctx.shortlist.length
+        ? '<button id="rerankBtn" class="ghost" style="padding:10px 18px">⚡ Deep re-rank on RocketRide Cloud</button> ' +
+          '<button id="enrichBtn" class="ghost" style="padding:10px 18px">🔗 Enrich via LinkedIn</button> ' +
+          '<div id="rerankMsg" class="hint" style="margin-top:8px"></div>'
+        : '';
+      if (ctx.shortlist.length) { el('rerankBtn').onclick = doRerank; el('enrichBtn').onclick = doEnrich; }
+    }
+    async function doEnrich() {
+      const btn = el('enrichBtn'); btn.disabled = true;
+      const msg = () => el('rerankMsg');
+      msg().textContent = 'Enriching shortlist via LinkedIn…';
+      try {
+        const ids = ctx.shortlist.map((s) => s.id);
+        const s = await post('/enrich-start', { personIds: ids });
+        if (s.error) throw new Error(s.error);
+        let done = null;
+        for (let i = 0; i < 35; i++) {
+          const st = await post('/enrich-status', { enrichRunId: s.enrichRunId, datasetId: s.datasetId, handleToId: s.handleToId });
+          if (st.done) { if (st.error) throw new Error(st.error); done = st; break; }
+          msg().textContent = `Enriching ${s.count} LinkedIn profiles… (${(st.status || 'running').toLowerCase()}, ${i * 3}s)`;
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+        if (!done) throw new Error('enrichment timed out');
+        const byId = {}; (done.enriched || []).forEach((e) => { byId[e.id] = e; });
+        ctx.shortlist = ctx.shortlist.map((s) => byId[s.id] ? { ...s, headline: byId[s.id].headline || s.headline, company: byId[s.id].company || s.company } : s);
+        showRoom(ctx.shortlist, false);
+        el('rerankMsg').innerHTML = `<span style="color:var(--good)">✓ Enriched ${(done.enriched || []).length} profiles via LinkedIn — company + WORKS_AT edges added to the graph</span>`;
+      } catch (e) {
+        if (el('rerankMsg')) el('rerankMsg').innerHTML = `<span class="err">${esc(String(e.message || e))}</span>`;
+        if (el('enrichBtn')) el('enrichBtn').disabled = false;
+      }
+    }
+    async function doRerank() {
+      const btn = el('rerankBtn'); btn.disabled = true;
+      const msg = () => el('rerankMsg');
+      msg().textContent = 'Starting RocketRide Cloud pipeline…';
+      try {
+        const s = await post('/rerank-start', { event: ctx.eid, prefs: el('prefs').value.trim(), profile: ctx.profile, me: ctx.me });
+        if (s.error) throw new Error(s.error);
+        let done = null;
+        for (let i = 0; i < 30; i++) {
+          const st = await post('/rerank-status', { rankRunId: s.rankRunId, datasetId: s.datasetId, candidates: s.candidates, me: s.me, event: ctx.eid });
+          if (st.done) { if (st.error) throw new Error(st.error); done = st; break; }
+          msg().textContent = `RocketRide Cloud ranking ${s.candidates.length} attendees… (${(st.status || 'running').toLowerCase()}, ${i * 3}s)`;
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+        if (!done) throw new Error('re-rank timed out');
+        showRoom(done.shortlist, false);
+        el('rerankMsg').innerHTML = '<span style="color:var(--good)">✓ Ranked by RocketRide Cloud (llm → Butterbase gateway)</span>';
+      } catch (e) {
+        if (el('rerankMsg')) el('rerankMsg').innerHTML = `<span class="err">${esc(String(e.message || e))}</span>`;
+        if (el('rerankBtn')) el('rerankBtn').disabled = false;
+      }
+    }
+    function renderLoadMore(show) {
+      el('loadmoreWrap').innerHTML = show
+        ? '<button id="loadMoreBtn" class="ghost" style="padding:11px 20px">Load 8 more people ↓</button>'
+        : '';
+      if (show) el('loadMoreBtn').onclick = loadMore;
+    }
+    async function loadMore() {
+      const btn = el('loadMoreBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Ranking more…'; }
+      try {
+        const exclude = ctx.shortlist.map((s) => s.id);
+        const r = await post('/agent', {
+          event: ctx.eid, eventUrl: el('eventUrl').value.trim(), prefs: el('prefs').value.trim(),
+          profile: ctx.profile, me: ctx.me, exclude, runId: ctx.runId,
+        });
+        if (r.error) throw new Error(r.error);
+        const batch = r.shortlist || [];
+        if (!batch.length) { el('loadmoreWrap').innerHTML = '<div class="empty">That\'s everyone we could rank.</div>'; return; }
+        const start = ctx.shortlist.length;
+        ctx.shortlist = ctx.shortlist.concat(batch);
+        el('out').insertAdjacentHTML('beforeend', batch.map((s, i) => card(s, start + i)).join(''));
+        ctx.runId = r.runId || ctx.runId;
+        renderLoadMore(!!r.hasMore);
+      } catch (e) {
+        el('loadmoreWrap').innerHTML = `<div class="err">${esc(String(e.message || e))}</div>`;
+      }
     }
     function restoreChat(shortlist, messages) {
       el('msgs').innerHTML = '';
@@ -509,6 +607,26 @@
       ctx.history = messages.map((m) => ({ role: m.role, content: m.content }));
       messages.forEach((m) => pushMsg(m.role === 'user' ? 'user' : 'bot', m.content));
       el('chatwrap').style.display = 'block';
+    }
+    async function loadSaved() {
+      try {
+        const r = await post('/save', { op: 'list' });
+        const list = r.saved || [];
+        if (!list.length) { el('savedbox').style.display = 'none'; return; }
+        el('savedbox').style.display = 'block';
+        el('savedList').innerHTML = list.map((p) => `
+          <div class="sess" style="cursor:default">
+            <div class="s-main">
+              <div class="s-name">${esc(p.person_name || p.person_id)}</div>
+              <div class="hint">${esc(p.headline || '')}</div>
+              ${p.opener ? `<div class="opener" style="margin-top:6px">“${esc(p.opener)}”</div>` : ''}
+            </div>
+            <button class="ghost rm-saved" data-pid="${esc(p.person_id)}" style="padding:5px 11px;font-size:12px">Remove</button>
+          </div>`).join('');
+        [...el('savedList').querySelectorAll('.rm-saved')].forEach((b) => {
+          b.onclick = async () => { b.disabled = true; await post('/save', { op: 'remove', personId: b.dataset.pid }); loadSaved(); };
+        });
+      } catch { el('savedbox').style.display = 'none'; }
     }
     async function loadSessions() {
       try {
@@ -542,15 +660,16 @@
         // prefill the form so "Re-run" works — cookie must be re-pasted (never stored).
         el('eventUrl').value = s.eventUrl || ''; el('prefs').value = s.prefs || ''; el('profile').value = s.profile || '';
         el('cookie').value = ''; el('steps').innerHTML = ''; el('go').textContent = 'Re-run scraper (fresh data) →';
-        showRoom(s.shortlist || []);
-        restoreChat(s.shortlist || [], s.messages || []);
+        const list = s.shortlist || [];
+        showRoom(list, list.length > 0 && list.length % 8 === 0);
+        restoreChat(list, s.messages || []);
         el('out').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) { el('out').innerHTML = `<div class="err">${esc(String(e))}</div>`; }
     }
     function newSearch() {
       ctx = { eid: null, me: null, profile: '', history: [], shortlist: [], runId: null };
       ['eventUrl', 'cookie', 'prefs', 'profile'].forEach((id) => { el(id).value = ''; });
-      el('out').innerHTML = ''; el('steps').innerHTML = ''; el('chatwrap').style.display = 'none';
+      el('out').innerHTML = ''; el('loadmoreWrap').innerHTML = ''; el('rerankWrap').innerHTML = ''; el('steps').innerHTML = ''; el('chatwrap').style.display = 'none';
       el('go').textContent = 'Work the room →';
       el('appbox').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

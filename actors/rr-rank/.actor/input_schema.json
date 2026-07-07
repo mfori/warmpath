@@ -1,0 +1,14 @@
+{
+  "title": "rr-rank input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "candidates": { "title": "Candidates", "type": "array", "description": "Attendees to rank ({name, headline}).", "editor": "json" },
+    "prefs": { "title": "Preferences", "type": "string", "description": "Who the user wants to meet.", "editor": "textfield" },
+    "profile": { "title": "Profile", "type": "string", "description": "User background.", "editor": "textfield" },
+    "bbKey": { "title": "Butterbase key", "type": "string", "description": "Butterbase key for the AI gateway.", "editor": "textfield", "isSecret": true },
+    "appId": { "title": "Butterbase app id", "type": "string", "description": "Butterbase app id for the gateway base URL.", "editor": "textfield" },
+    "rrKey": { "title": "RocketRide key", "type": "string", "description": "RocketRide Cloud API key.", "editor": "textfield", "isSecret": true }
+  },
+  "required": ["candidates"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "rr-rank",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "WarmPath ranking via a RocketRide Cloud pipeline",
+  "main": "src/main.js",
+  "scripts": { "start": "node src/main.js" },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "rocketride": "^1.3.0"
+  }
+}

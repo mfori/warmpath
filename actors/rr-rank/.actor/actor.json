@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "rr-rank",
+  "title": "WarmPath Ranking (RocketRide Cloud)",
+  "description": "Ranks event attendees via a RocketRide Cloud pipeline (llm_openai_api -> Butterbase gateway).",
+  "version": "0.1",
+  "input": "./input_schema.json",
+  "dockerfile": "../Dockerfile"
+}

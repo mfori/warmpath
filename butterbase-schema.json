@@ -1,51 +1,48 @@
 {
-  "schema": {
-    "tables": {
-      "runs": {
-        "columns": {
-          "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
-          "user_id": { "type": "text", "nullable": false },
-          "event_id": { "type": "text" },
-          "event_name": { "type": "text" },
-          "event_url": { "type": "text" },
-          "prefs": { "type": "text" },
-          "profile": { "type": "text" },
-          "me": { "type": "text" },
-          "total_attendees": { "type": "integer" },
-          "shortlist": { "type": "jsonb" },
-          "created_at": { "type": "timestamptz", "default": "now()" },
-          "updated_at": { "type": "timestamptz", "default": "now()" }
-        },
-        "indexes": {
-          "idx_runs_user": { "columns": ["user_id"] },
-          "idx_runs_user_event": { "columns": ["user_id", "event_id"] }
-        }
+  "tables": {
+    "runs": {
+      "columns": {
+        "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
+        "user_id": { "type": "text", "nullable": false },
+        "event_id": { "type": "text" },
+        "event_name": { "type": "text" },
+        "event_url": { "type": "text" },
+        "prefs": { "type": "text" },
+        "profile": { "type": "text" },
+        "me": { "type": "text" },
+        "total_attendees": { "type": "integer" },
+        "shortlist": { "type": "jsonb" },
+        "created_at": { "type": "timestamptz", "default": "now()" },
+        "updated_at": { "type": "timestamptz", "default": "now()" }
       },
-      "saved_targets": {
-        "columns": {
-          "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
-          "user_id": { "type": "text", "nullable": false },
-          "run_id": { "type": "uuid", "references": "runs.id" },
-          "person_id": { "type": "text" },
-          "person_name": { "type": "text" },
-          "headline": { "type": "text" },
-          "opener": { "type": "text" },
-          "created_at": { "type": "timestamptz", "default": "now()" }
-        },
-        "indexes": { "idx_targets_user": { "columns": ["user_id"] } }
-      },
-      "messages": {
-        "columns": {
-          "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
-          "run_id": { "type": "uuid", "references": "runs.id" },
-          "user_id": { "type": "text", "nullable": false },
-          "role": { "type": "text" },
-          "content": { "type": "text" },
-          "created_at": { "type": "timestamptz", "default": "now()" }
-        },
-        "indexes": { "idx_messages_run": { "columns": ["run_id"] } }
+      "indexes": {
+        "idx_runs_user": { "columns": ["user_id"] },
+        "idx_runs_user_event": { "columns": ["user_id", "event_id"] }
       }
+    },
+    "saved_targets": {
+      "columns": {
+        "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
+        "user_id": { "type": "text", "nullable": false },
+        "run_id": { "type": "uuid", "references": "runs.id" },
+        "person_id": { "type": "text" },
+        "person_name": { "type": "text" },
+        "headline": { "type": "text" },
+        "opener": { "type": "text" },
+        "created_at": { "type": "timestamptz", "default": "now()" }
+      },
+      "indexes": { "idx_targets_user": { "columns": ["user_id"] } }
+    },
+    "messages": {
+      "columns": {
+        "id": { "type": "uuid", "primaryKey": true, "default": "gen_random_uuid()" },
+        "run_id": { "type": "uuid", "references": "runs.id" },
+        "user_id": { "type": "text", "nullable": false },
+        "role": { "type": "text" },
+        "content": { "type": "text" },
+        "created_at": { "type": "timestamptz", "default": "now()" }
+      },
+      "indexes": { "idx_messages_run": { "columns": ["run_id"] } }
     }
-  },
-  "name": "warmpath_sessions"
+  }
 }
