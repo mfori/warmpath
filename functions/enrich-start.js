@@ -25,12 +25,24 @@ export default async function handler(request, ctx) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
   try {
     if (!ctx?.user?.id) return new Response(JSON.stringify({ error: 'login required' }), { status: 401, headers: cors });
-    const { personIds = [] } = await request.json();
-    if (!personIds.length) return new Response(JSON.stringify({ error: 'personIds required' }), { status: 400, headers: cors });
+    const { personIds = [], event, limit = 80 } = await request.json();
 
-    const rows = await cypher(env,
-      `MATCH (p:Person) WHERE p.id IN $ids AND p.linkedin IS NOT NULL AND p.linkedin <> ''
-       RETURN p.id AS id, p.linkedin AS linkedin`, { ids: personIds });
+    let rows;
+    if (event) {
+      // Enrich the whole room: attendees with a LinkedIn handle, most-connected first, capped.
+      rows = await cypher(env,
+        `MATCH (:Event {id:$event})<-[:ATTENDS]-(p:Person)
+         WHERE p.linkedin IS NOT NULL AND p.linkedin <> ''
+         OPTIONAL MATCH (p)-[:ATTENDS]->(e:Event)
+         RETURN p.id AS id, p.linkedin AS linkedin, count(e) AS events
+         ORDER BY events DESC LIMIT toInteger($limit)`, { event, limit });
+    } else if (personIds.length) {
+      rows = await cypher(env,
+        `MATCH (p:Person) WHERE p.id IN $ids AND p.linkedin IS NOT NULL AND p.linkedin <> ''
+         RETURN p.id AS id, p.linkedin AS linkedin`, { ids: personIds });
+    } else {
+      return new Response(JSON.stringify({ error: 'personIds or event required' }), { status: 400, headers: cors });
+    }
 
     const handleToId = {};
     const startUrls = [];

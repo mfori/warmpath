@@ -523,10 +523,33 @@
     function renderRerank() {
       el('rerankWrap').innerHTML = ctx.shortlist.length
         ? '<button id="rerankBtn" class="ghost" style="padding:10px 18px">⚡ Deep re-rank on RocketRide Cloud</button> ' +
-          '<button id="enrichBtn" class="ghost" style="padding:10px 18px">🔗 Enrich via LinkedIn</button> ' +
+          '<button id="enrichBtn" class="ghost" style="padding:10px 18px">🔗 Enrich shortlist</button> ' +
+          '<button id="enrichAllBtn" class="ghost" style="padding:10px 18px">✨ Enrich whole room + re-rank</button> ' +
           '<div id="rerankMsg" class="hint" style="margin-top:8px"></div>'
         : '';
-      if (ctx.shortlist.length) { el('rerankBtn').onclick = doRerank; el('enrichBtn').onclick = doEnrich; }
+      if (ctx.shortlist.length) { el('rerankBtn').onclick = doRerank; el('enrichBtn').onclick = doEnrich; el('enrichAllBtn').onclick = enrichAllThenRerank; }
+    }
+    async function enrichAllThenRerank() {
+      const btn = el('enrichAllBtn'); if (btn) btn.disabled = true;
+      const msg = () => el('rerankMsg');
+      msg().textContent = 'Enriching the whole room via LinkedIn (this takes a couple minutes)…';
+      try {
+        const s = await post('/enrich-start', { event: ctx.eid, limit: 80 });
+        if (s.error) throw new Error(s.error);
+        let done = null;
+        for (let i = 0; i < 120; i++) {
+          const st = await post('/enrich-status', { enrichRunId: s.enrichRunId, datasetId: s.datasetId, handleToId: s.handleToId });
+          if (st.done) { if (st.error) throw new Error(st.error); done = st; break; }
+          msg().textContent = `Enriching ${s.count} LinkedIn profiles on Apify… (${(st.status || 'running').toLowerCase()}, ${i * 3}s)`;
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+        if (!done) throw new Error('enrichment timed out');
+        msg().innerHTML = `<span style="color:var(--good)">✓ Enriched ${(done.enriched || []).length} profiles</span> — now re-ranking on RocketRide Cloud…`;
+        await doRerank();
+      } catch (e) {
+        if (el('rerankMsg')) el('rerankMsg').innerHTML = `<span class="err">${esc(String(e.message || e))}</span>`;
+        if (el('enrichAllBtn')) el('enrichAllBtn').disabled = false;
+      }
     }
     async function doEnrich() {
       const btn = el('enrichBtn'); btn.disabled = true;
