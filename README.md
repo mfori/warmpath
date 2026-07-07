@@ -1,44 +1,47 @@
 # WarmPath
 
-Graph-native networking agent for HackwithBay 3.0. Discover relevant events, then find your **shortest
-warm-intro path** to the people you want to meet — over a Neo4j relationship graph an agent traverses.
+**Work the room before you walk in.** Paste a Luma event you're attending, say who you want to meet, and WarmPath scrapes the attendees, **enriches them from LinkedIn**, **ranks them with AI**, and shows your **warmest intro path** to the people worth meeting — then lets you chat about the room and save targets.
 
-Mandatory stack: **Neo4j** (the graph + shortest-path/community), **RocketRide Cloud** (the deployed agent
-pipeline), **Butterbase** (DB + auth + payment). **Apify** ingests Luma data. **Cognee** (bonus) = memory.
+🔗 Live: **https://warmpath.butterbase.dev**
 
-## Quick start (de-risk order)
+## How it works
 
-```bash
-cp .env.example .env      # fill Neo4j + Apify creds
-npm install
+1. **Scrape** the event's attendees from Luma (custom Apify actor, using your logged-in session).
+2. **Enrich** each attendee from **LinkedIn** (Apify) → real title, **company**, richer headline.
+3. **Rank** them with AI against your goal + background — the ranking runs on **RocketRide Cloud**.
+4. **Store the graph in Neo4j** — people, events, and companies as nodes. Because every event you search
+   is saved, WarmPath **knows when an attendee also showed up at other events you've searched**, and
+   finds warm-intro paths through shared events / employers.
+5. **Everything else lives in Butterbase** — auth, your saved sessions/chats/people, the AI gateway, and
+   the app itself.
 
-# 1) prove connectivity
-npm run ping:neo4j
-npm run ping:apify
+## The three mandatory technologies (all load-bearing)
 
-# 2) load schema + demo graph, then run the two hero queries
-npm run db:schema
-npm run q:radar                    # Event Radar for evt-x
-npm run q:warmpath                 # warm path: me -> founder  (You -> Stripe -> Ana -> Event -> Jordan)
+### 🕸️ Neo4j — the relationship graph
+Attendees, events, and companies are nodes; `ATTENDS` / `WORKS_AT` are edges. The agent traverses it with
+Cypher: **`shortestPath`** for warm intros ("you both worked at Stripe" / "you both went to last month's
+event") and **shared-attendee** queries to recommend related events. Every searched event is persisted,
+so the graph accumulates cross-event overlap — that's what makes warm paths possible.
 
-# 3) ingest real data (local frozen file first, then Apify dataset)
-npm run ingest                     # loads data/luma.sample.json
-npm run ingest:apify               # loads LUMA_DATASET_ID from a finished actor run
-```
+### 🧈 Butterbase — the backend
+The entire product runs on Butterbase: **auth** (login required), **database** (searched sessions, chat
+threads, saved people — per user), the **AI gateway** (Claude, for ranking/openers/chat), **payments**
+(Stripe Connect subscription tier), and **hosting** (static frontend + all serverless edge functions).
 
-Open the graph in Neo4j Browser and run `cypher/queries.cypher` for the live demo visual.
+### 🚀 RocketRide Cloud — the AI ranking pipeline
+The attendee-ranking pipeline (`chat → llm_openai_api → response_answers`) is **deployed to RocketRide
+Cloud** and invoked by the app (via an Apify actor bridge) as a "Deep re-rank." Its LLM node points at
+**Butterbase's gateway**, so RocketRide and Butterbase are composed in a single pipeline.
 
-## Layout
-- `cypher/` — `schema.cypher`, `seed.cypher` (demo graph), `queries.cypher` (the two hero queries).
-- `src/lib/neo4j.ts` — driver + helpers.
-- `src/queries.ts` — `eventRadar()` / `warmPath()` (used by the app + the RocketRide pipeline).
-- `src/ingest.ts` — Luma records → Neo4j upserts (local file or Apify dataset).
-- `scripts/` — smoke tests, schema apply, query runners.
-- `actors/luma-scraper/` — custom Apify actor (deploy this). See its README.
-- `data/luma.sample.json` — frozen demo dataset (also documents the record shape).
+## Also
+- **Apify** (our edge): the custom Luma scraper, LinkedIn enrichment, and the RocketRide bridge.
+- **Data flow:** Luma → Apify (scrape + LinkedIn enrich) → Neo4j (graph) → RocketRide Cloud (rank) →
+  Butterbase (auth, storage, AI gateway, serving).
 
-## Next (not yet scaffolded)
-- **RocketRide Cloud pipeline** — wrap the planner + `queries.ts` traversals + LLM synthesis; deploy to
-  cloud.rocketride.ai; put the endpoint in `ROCKETRIDE_ENDPOINT`.
-- **Butterbase** — auth + DB + AI gateway + the mandatory payment gate.
-- **Frontend** — goal input, Event Radar list, graph view with the warm path highlighted.
+## Notes
+- Full attendee lists require being **registered** to the event (Luma gates the guest list).
+- **Monetization is fully built and ready** — a "WarmPath Pro" plan, a Butterbase billing/checkout edge
+  function, a free-tier usage meter, and an "Upgrade to Pro" flow are all wired end-to-end. It just
+  **can't be activated**: Butterbase payouts run on **Stripe Connect, whose onboarding is restricted to
+  US residents**, and our team is non-US. So the payment integration is code-complete up to the Stripe
+  onboarding step — everything before that works.
