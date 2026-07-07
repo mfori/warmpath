@@ -1,5 +1,17 @@
 # WarmPath
 
+## The problem
+You RSVP to a 500-person event. You'll realistically meet ~10 people — but you have no idea **who's worth
+your time**, and the ones who matter are invisible in a flat attendee list. Researching everyone by hand
+(open each LinkedIn, guess their relevance, figure out an ice-breaker, hope for a mutual connection) is
+impossible at that scale, so most people wing it and miss the highest-value conversation in the room.
+
+**WarmPath does that research for you before you walk in:** it finds who you should meet, why, a
+personalized opener, and your warmest intro path — turning a room full of strangers into a ranked, warm
+game plan.
+
+## What it is
+
 **Work the room before you walk in.** Paste a Luma event you're attending, say who you want to meet, and WarmPath scrapes the attendees, **enriches them from LinkedIn**, **ranks them with AI**, and shows your **warmest intro path** to the people worth meeting — then lets you chat about the room and save targets.
 
 🔗 Live: **https://warmpath.butterbase.dev**
