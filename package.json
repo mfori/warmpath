@@ -1,0 +1,24 @@
+{
+  "name": "warmpath",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ping:neo4j": "tsx scripts/neo4j-ping.ts",
+    "ping:apify": "tsx scripts/apify-ping.ts",
+    "db:schema": "tsx scripts/apply-schema.ts",
+    "ingest": "tsx src/ingest.ts",
+    "ingest:apify": "tsx src/ingest.ts --apify",
+    "q:radar": "tsx scripts/run-radar.ts",
+    "q:warmpath": "tsx scripts/run-warmpath.ts"
+  },
+  "dependencies": {
+    "apify-client": "^2.12.0",
+    "dotenv": "^16.4.7",
+    "neo4j-driver": "^5.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

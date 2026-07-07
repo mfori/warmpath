@@ -1,0 +1,34 @@
+{
+  "title": "Luma Scraper input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "eventUrls": {
+      "title": "Event URLs",
+      "type": "array",
+      "description": "lu.ma event URLs to scrape (e.g. https://lu.ma/xxxxxx).",
+      "editor": "stringList",
+      "prefill": ["https://lu.ma/"]
+    },
+    "lumaCookie": {
+      "title": "Luma session cookie",
+      "type": "string",
+      "description": "Cookie header string from a logged-in lu.ma session. Required to see guest lists. Format: 'name1=value1; name2=value2'.",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "scrapeGuests": {
+      "title": "Scrape guests",
+      "type": "boolean",
+      "description": "Attempt to extract the attendee/guest list (needs a valid cookie and an event that exposes it).",
+      "default": true
+    },
+    "maxEvents": {
+      "title": "Max events",
+      "type": "integer",
+      "description": "Safety cap on number of event pages to process.",
+      "default": 50
+    }
+  },
+  "required": ["eventUrls"]
+}

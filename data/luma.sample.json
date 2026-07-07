@@ -1,0 +1,34 @@
+[
+  {
+    "event": {
+      "id": "evt-x",
+      "url": "https://lu.ma/sf-ai-agents-night",
+      "name": "SF AI Agents Night",
+      "description": "Monthly meetup for people building autonomous agents.",
+      "startAt": "2026-07-10T18:00:00Z",
+      "location": "San Francisco, CA",
+      "topics": ["AI Agents"],
+      "organizers": [{ "id": "sfai", "name": "SF AI Collective", "url": "https://lu.ma/sfai" }]
+    },
+    "guests": [
+      { "id": "ana", "name": "Ana Rios", "headline": "Engineer at Stripe" },
+      { "id": "founder", "name": "Jordan Lee", "headline": "Founder at TargetCo" },
+      { "id": "priya", "name": "Priya Nair", "headline": "PM at Notion" }
+    ],
+    "coverage": { "attendeesVisible": true }
+  },
+  {
+    "event": {
+      "id": "evt-y",
+      "url": "https://lu.ma/graph-agents-hack-social",
+      "name": "Graph + Agents Hack Social",
+      "description": "Graph databases meet autonomous agents.",
+      "startAt": "2026-07-15T18:00:00Z",
+      "location": "San Francisco, CA",
+      "topics": ["AI Agents", "Graphs"],
+      "organizers": [{ "id": "sfai", "name": "SF AI Collective", "url": "https://lu.ma/sfai" }]
+    },
+    "guests": [],
+    "coverage": { "attendeesVisible": false }
+  }
+]

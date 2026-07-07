@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "luma-scraper",
+  "title": "Luma Event & Guest Scraper",
+  "description": "Scrapes Luma event metadata (name, description, topics, organizers) and, when logged in, the guest list. Outputs the normalized WarmPath record shape.",
+  "version": "0.1",
+  "input": "./input_schema.json",
+  "dockerfile": "../Dockerfile"
+}

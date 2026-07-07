@@ -1,0 +1,10 @@
+node_modules/
+.env
+# scraped personal data — keep out of git (regenerate via the actor)
+data/luma.real.json
+data/event-urls.json
+dist/
+storage/
+actors/*/storage/
+actors/*/node_modules/
+*.log

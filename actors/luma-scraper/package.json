@@ -1,0 +1,15 @@
+{
+  "name": "luma-scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Luma event & guest scraper (Apify actor)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "@crawlee/playwright": "^3.11.5",
+    "playwright": "^1.49.1"
+  }
+}
